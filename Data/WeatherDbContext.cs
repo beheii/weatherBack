@@ -20,6 +20,8 @@ public partial class WeatherDbContext : DbContext
 
     public virtual DbSet<Sun> Suns { get; set; }
 
+    public virtual DbSet<User> Users { get; set; }
+
     public virtual DbSet<WeatherCondition> WeatherConditions { get; set; }
 
     public virtual DbSet<WeatherCurrent> WeatherCurrents { get; set; }
@@ -37,6 +39,8 @@ public partial class WeatherDbContext : DbContext
             entity.HasKey(e => e.CityId).HasName("PK__City__B4BEB95E196182F2");
 
             entity.ToTable("City");
+
+            entity.HasIndex(e => e.Name, "IX_City_Name");
 
             entity.Property(e => e.CityId).HasColumnName("cityId");
             entity.Property(e => e.Code)
@@ -67,11 +71,33 @@ public partial class WeatherDbContext : DbContext
                 .HasConstraintName("FK__Sun__weatherCurr__73BA3083");
         });
 
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.UserId).HasName("PK__Users__CB9A1CFFA079E537");
+
+            entity.HasIndex(e => e.Email, "IX_Users_Email");
+
+            entity.Property(e => e.UserId).HasColumnName("userId");
+            entity.Property(e => e.Email)
+                .HasMaxLength(100)
+                .HasColumnName("email");
+            entity.Property(e => e.PasswordHash)
+                .HasMaxLength(256)
+                .HasColumnName("passwordHash");
+            entity.Property(e => e.RefreshToken)
+                .HasMaxLength(256)
+                .HasColumnName("refreshToken");
+            entity.Property(e => e.RefreshTokenExpiryTime).HasColumnName("refreshTokenExpiryTime");
+            entity.Property(e => e.Roles).HasMaxLength(50);
+        });
+
         modelBuilder.Entity<WeatherCondition>(entity =>
         {
             entity.HasKey(e => e.WeatherConditionId).HasName("PK__WeatherC__79D49466365D9545");
 
             entity.ToTable("WeatherCondition");
+
+            entity.HasIndex(e => new { e.MainName, e.Description }, "IX_WeatherCondition_MainName_Description");
 
             entity.Property(e => e.WeatherConditionId).HasColumnName("weatherConditionId");
             entity.Property(e => e.Description)
