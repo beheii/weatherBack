@@ -70,9 +70,22 @@ namespace weatherapp.Services
 
         private async Task<User?> ValidateRefreshTokenAsync(int userId, string refreshToken)
         {
-            var user = await context.Users.FindAsync(userId);
-            if (user is null || user.RefreshToken != refreshToken
-                || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+            User? user;
+            
+            // If userId is provided, use it; otherwise find user by refresh token
+            if (userId > 0)
+            {
+                user = await context.Users.FindAsync(userId);
+            }
+            else
+            {
+                // Find user by refresh token
+                user = await context.Users
+                    .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
+            }
+            
+            if (user is null || user.RefreshToken != refreshToken // check db
+                || user.RefreshTokenExpiryTime <= DateTime.UtcNow) // check if refresh token is expired
             {
                 return null;
             }
@@ -101,7 +114,7 @@ namespace weatherapp.Services
         {
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.Name, user.Email),
+                new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
                 new Claim(ClaimTypes.Role, user.Roles ?? "User")
             };
@@ -114,7 +127,7 @@ namespace weatherapp.Services
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddDays(1),
+                Expires = DateTime.UtcNow.AddMinutes(15),
                 Issuer = configuration.GetValue<string>("AppSettings:Issuer"),
                 Audience = configuration.GetValue<string>("AppSettings:Audience"),
                 SigningCredentials = creds
