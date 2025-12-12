@@ -24,8 +24,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<WeatherDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<WeatherService>();
+builder.Services.AddScoped<IWeatherService, WeatherService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 // Configure JWT Authentication
 var jwtKey = builder.Configuration["AppSettings:Token"] 
@@ -70,7 +71,7 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
 
-// Add Swagger/OpenAPI with JWT support
+// Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -78,32 +79,7 @@ builder.Services.AddSwaggerGen(c =>
     { 
         Title = "Weather API", 
         Version = "v1",
-        Description = "Weather API with JWT Authentication"
-    });
-    
-    // Add JWT Authentication to Swagger
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below.",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
+        Description = "Weather API with JWT Authentication (using httpOnly cookies)"
     });
 });
 

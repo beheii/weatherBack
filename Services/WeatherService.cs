@@ -5,7 +5,7 @@ using weatherapp.Models;
 
 namespace weatherapp.Services;
 
-public class WeatherService
+public class WeatherService : IWeatherService
 {
     private readonly WeatherDbContext _context;
     private readonly IHttpClientFactory _httpClientFactory;

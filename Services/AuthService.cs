@@ -1,6 +1,7 @@
 using weatherapp.Data;
 using weatherapp.DTO;
 using weatherapp.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -72,8 +73,7 @@ namespace weatherapp.Services
         {
             User? user;
             
-            // If userId is provided, use it; otherwise find user by refresh token
-            if (userId > 0)
+            if (userId > 0) // find by id
             {
                 user = await context.Users.FindAsync(userId);
             }
@@ -84,7 +84,7 @@ namespace weatherapp.Services
                     .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
             }
             
-            if (user is null || user.RefreshToken != refreshToken // check db
+            if (user is null || user.RefreshToken != refreshToken 
                 || user.RefreshTokenExpiryTime <= DateTime.UtcNow) // check if refresh token is expired
             {
                 return null;
@@ -148,6 +148,32 @@ namespace weatherapp.Services
             user.RefreshTokenExpiryTime = null;
             await context.SaveChangesAsync();
             return true;
+        }
+
+        public CookieOptions GetAccessTokenCookieOptions()
+        {
+            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+            return new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !isDevelopment,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddMinutes(15), // Match token expiry
+                Path = "/"
+            };
+        }
+
+        public CookieOptions GetRefreshTokenCookieOptions()
+        {
+            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+            return new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !isDevelopment,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddDays(7), // Match refresh token expiry
+                Path = "/"
+            };
         }
     }
 }

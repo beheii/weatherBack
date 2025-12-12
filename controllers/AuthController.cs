@@ -16,9 +16,8 @@ namespace weatherapp.Controllers
         {
             var user = await authService.RegisterAsync(request);
             if (user is null)
-                return BadRequest("Email already exists.");
+                return BadRequest(new { message = "User with this email already exists" });
 
-            // Don't return the password hash
             return Ok(new 
             { 
                 userId = user.UserId, 
@@ -33,32 +32,14 @@ namespace weatherapp.Controllers
         {
             var result = await authService.LoginAsync(request);
             if (result is null)
-                return BadRequest("Invalid email or password.");
+                return BadRequest(new { message = "Invalid email or password." });
 
             // Set access token as httpOnly cookie
-            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            var accessTokenCookieOptions = new CookieOptions
-            {
-                HttpOnly = true,           // Prevents XSS attacks - JS can't access
-                Secure = !isDevelopment,   // Only sent over HTTPS (except in development)
-                SameSite = SameSiteMode.Strict, // CSRF protection
-                Expires = DateTime.UtcNow.AddMinutes(15), // Match token expiry
-                Path = "/"
-            };
-            Response.Cookies.Append("accessToken", result.AccessToken, accessTokenCookieOptions);
+            Response.Cookies.Append("accessToken", result.AccessToken, authService.GetAccessTokenCookieOptions());
 
             // Set refresh token as httpOnly cookie
-            var refreshTokenCookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = !isDevelopment,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddDays(7), // Match refresh token expiry
-                Path = "/"
-            };
-            Response.Cookies.Append("refreshToken", result.RefreshToken, refreshTokenCookieOptions);
+            Response.Cookies.Append("refreshToken", result.RefreshToken, authService.GetRefreshTokenCookieOptions());
 
-            // Return user info (not tokens)
             return Ok(new 
             { 
                 message = "Login successful",
@@ -73,69 +54,35 @@ namespace weatherapp.Controllers
             var refreshToken = Request.Cookies["refreshToken"];
             
             if (string.IsNullOrEmpty(refreshToken))
-                return Unauthorized("Refresh token not found.");
+                return Unauthorized(new { message = "Refresh token not found." });
 
-            // AuthService will find user by refresh token (userId = 0 means find by token)
             var request = new RefreshTokenRequestDto 
             { 
-                UserId = 0, // 0 means find user by refresh token
+                UserId = 0, //find user by refresh token
                 RefreshToken = refreshToken 
             };
             
             var result = await authService.RefreshTokensAsync(request);
             if (result is null || result.AccessToken is null || result.RefreshToken is null)
-                return Unauthorized("Invalid refresh token.");
+                return Unauthorized(new { message = "Invalid refresh token." });
 
             // Update cookies with new tokens
-            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            var accessTokenCookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = !isDevelopment,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddMinutes(15),
-                Path = "/"
-            };
-            Response.Cookies.Append("accessToken", result.AccessToken, accessTokenCookieOptions);
-
-            var refreshTokenCookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = !isDevelopment,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddDays(7),
-                Path = "/"
-            };
-            Response.Cookies.Append("refreshToken", result.RefreshToken, refreshTokenCookieOptions);
+            Response.Cookies.Append("accessToken", result.AccessToken, authService.GetAccessTokenCookieOptions());
+            Response.Cookies.Append("refreshToken", result.RefreshToken, authService.GetRefreshTokenCookieOptions());
 
             return Ok(new { message = "Token refreshed successfully" });
         }
 
-        [Authorize]
-        [HttpGet]
-        public IActionResult AuthenticatedOnlyEndpoint()
-        {
-            return Ok("You are authenticated!");
-        }
-
-        [Authorize(Roles = "Admin")]
-        [HttpGet("admin-only")]
-        public IActionResult AdminOnlyEndpoint()
-        {
-            return Ok("You are an admin!");
-        }
-
+ 
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
-            // Try to get userId from claims if authenticated, otherwise proceed with cookie cleanup
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim != null && int.TryParse(userIdClaim.Value, out var userId))
             {
                 await authService.LogoutAsync(userId);
             }
 
-            // Clear cookies regardless of authentication status
             Response.Cookies.Delete("accessToken");
             Response.Cookies.Delete("refreshToken");
 

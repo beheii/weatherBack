@@ -9,10 +9,10 @@ namespace weatherapp.Controllers;
 [Authorize]
 public class WeatherController : ControllerBase
 {
-    private readonly WeatherService _weatherService;
+    private readonly IWeatherService _weatherService;
     private readonly ILogger<WeatherController> _logger;
 
-    public WeatherController(WeatherService weatherService, ILogger<WeatherController> logger)
+    public WeatherController(IWeatherService weatherService, ILogger<WeatherController> logger)
     {
         _weatherService = weatherService;
         _logger = logger;
